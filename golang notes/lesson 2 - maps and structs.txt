@@ -1,0 +1,251 @@
+Foreword: Maps and Structs
+Maps 
+	A collection of value types that are accessed via keys
+	Created via literals or via make function
+	Members accssed via [key] syntax
+		myMap["key"] = "value"
+	Check for presence with "value, ok" form of result
+	IMPORTANT: Multiple assignments refer to same underlying data
+
+Structs
+	A collection of disparate data types that describe a single concept
+	Keyed by named fields
+	Normally created as types, but anonymous structs are allowed
+	Structs are value types
+	No inheritance, but can use composition via embedding
+	Type and field of struct can be derived from using the reflect package
+	Tags can be added to struct fields to describe field
+
+//*************************************
+//1. Maps
+//*************************************
+
+package main
+
+import "fmt"
+
+//map declaration convention: map[key]value (key can be an int/string, value can also be of that type)
+func main() {
+	
+	//*************************************
+	// 1. using string as key and integers as values
+	//*************************************
+	
+	townPopulation := map[string]int{
+		"Hougang": 2000000,
+		"Bugis":   500000,
+		"Bedok":   400000,
+	}
+	
+	//*************************************
+	// 2. using int as key and string as values
+	//*************************************
+	
+	teamFormation := map[int]string{
+		1: "engineers",
+		2: "testers",
+		3: "administrators",
+	}
+
+	//*************************************
+	// 3. using string as key and slices of []string as values
+	//*************************************
+	
+	memberNames := map[string][]string{
+		"Alpha": {"James", "Philip", "Jenny"},
+		"Bravo": {"Ben", "Steve", "Alex"},
+	}
+
+	//*************************************
+	// 4. using string as key and stuct as values
+	//*************************************
+	
+	type role struct {
+		title string
+		dept  string
+	}
+
+	alpharole := role{title: "data engineers", dept: "AI Division"}
+	bravorole := role{title: "payroll", dept: "Human Resource Division"}
+
+	roles := map[string]role{
+		"dept 1": alpharole,
+		"dept 2": bravorole,
+	}
+
+	//Alternative way to declare a map with a struct member
+	rolesMapAlt := map[string]role{
+	 	"dept 1": {title: "data engineers", dept: "AI Division"},
+	 	"dept 2": {title: "payroll", dept: "Human Resource Division"},
+	}
+
+
+	//*************************************
+	// 5. Use make ftn to create an empty map of [int]string
+	//*************************************
+
+	mapArrayofStrings := make(map[int]string, 2)
+
+	//*************************************
+	// to initialize the empty map
+	//*************************************
+
+	mapArrayofStrings = map[int]string{3: "three", 4: "four", 5: "five"}
+
+	//*************************************
+	// to add more elements to the map
+	//*************************************
+
+	mapArrayofStrings[0] = "zero"
+	mapArrayofStrings[1] = "one"
+	mapArrayofStrings[2] = "two"
+
+	fmt.Println("")
+	fmt.Println("Maps of different types")
+	fmt.Printf("%T: %v\n\n", townPopulation, townPopulation)
+	fmt.Printf("%T: %v\n\n", teamFormation, teamFormation)
+	fmt.Printf("%T: %v\n\n", memberNames, memberNames)
+	fmt.Printf("%T: %v\n\n", roles, roles)
+	fmt.Printf("%T: %v Length:%v \n\n", mapArrayofStrings, mapArrayofStrings, len(mapArrayofStrings))
+
+	//*************************************
+	// 6. To delete a map's element
+	//*************************************
+
+	delete(mapArrayofStrings, 0)
+
+	//*************************************
+	// 7. check if the map's element above still exists, ok = true if still exist
+	//*************************************
+
+	pop, ok := mapArrayofStrings[0]
+	fmt.Println("Element still exists:", ok)
+	fmt.Println("Element's value:", pop)
+
+	fmt.Printf("Deleted key/value 0: %T: %v Length:%v \n\n", mapArrayofStrings, mapArrayofStrings, len(mapArrayofStrings))
+
+}
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+//*************************************
+// 1. Structs basics
+//*************************************
+
+type Team struct {
+	number     int
+	coach      string
+	players    []string
+	assistants []string //this is unused but ok, golang will not complain
+}
+
+func main() {
+	aTeam := Team{
+		number: 1,
+		coach:  "Phil Jackson",
+		players: []string{
+			"Zac Lavine",
+			"Alex Carouso",
+		},
+	}
+
+	fmt.Println("Struct details:", aTeam)
+	fmt.Println("Name of the coach is:", aTeam.coach)
+	fmt.Println("The 1st player is:", aTeam.players[0])
+	for index, name := range aTeam.players {
+		fmt.Printf("Player %d: %s\n", index+1, name)
+	}
+
+	//*************************************
+	// 2. Anonymous Structs: create, declare and use
+	//*************************************
+	anonymousTeam := struct {
+		tempNum     int
+		tempCoach   string
+		tempPlayers []string
+	}{1, "David Stern", []string{"Mark Morris, Chuck Daily"}}
+
+	fmt.Println("The anonymous team is:", anonymousTeam)
+	fmt.Println("")
+
+	//*************************************
+	// 3. Copies of structs do not share the same underlying data
+	//*************************************
+	anotherTeam := aTeam
+	anotherTeam.coach = "Pat Riley"
+	fmt.Println("Orginal team:", aTeam)
+	fmt.Println("Copy of team:", anotherTeam)
+	fmt.Println("")
+
+	//*************************************
+	// 4. Copies by address structs share the same underlying data
+	//*************************************
+	yetAnotherTeam := &aTeam //refer to & where the variable is copied as reference
+	yetAnotherTeam.number = 100
+	yetAnotherTeam.coach = "TBC"
+	fmt.Println("Original team:", aTeam)
+	fmt.Println("Copy by address of the other team:", yetAnotherTeam)
+
+	//*************************************
+	// 5. Struct in a struct
+	// Note: Structs within a struct can be accessed directly
+	// Note: There is no inheritance here; Mammal is embedded of the Whale's composition
+	//*************************************
+
+	type Mammal struct {
+		Name    string
+		Origins string
+	}
+
+	type Whale struct {
+		Mammal
+		Speed      float32
+		Endangered bool
+	}
+
+	aWhale := Whale{}            //aWhale is instantiated as an empty instance
+	aWhale.Name = "Killer Whale" //notice you can call "Name" directly of the Whale object
+	aWhale.Origins = "Whale"     //notice you can call "Origins" directly of the Whale object
+	aWhale.Speed = 32.0
+	aWhale.Endangered = true
+
+	fmt.Println(aWhale)
+
+	//*************************************
+	// 6. Struct in a struct
+	// Giving a struct a base behaviour
+	//*************************************
+
+	type Description struct {
+		NumWheels int `min_requied:"2"`
+		Doors     int
+	}
+
+	type Car struct {
+		Description
+		Brand string
+		Model string
+	}
+
+	c := Car{
+		Description: Description{NumWheels: 4, Doors: 4}, //Giving the base behaviour to the initialized var
+		Brand:       "Toyata",
+		Model:       "Camry",
+	}
+
+	fmt.Println(c)
+
+	//*************************************
+	// 6. Getting the object properties
+	//*************************************
+
+	t := reflect.TypeOf(Description{})
+	field, _ := t.FieldByName("NumWheels")
+	fmt.Println(t)
+	fmt.Println(field.Tag)
+}

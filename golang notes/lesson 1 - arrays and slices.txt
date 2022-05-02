@@ -1,0 +1,240 @@
+Foreword: Array and Slices 
+Arrays:
+A collection of items of the same type
+Has a fixed size
+Accessed via zero-based index
+len ftn returns the size of the array
+Copies refer to different underlying data
+
+Declaration styles
+    a := [3]int{1,2,3}
+    a := [...]int{1,2,3}
+    var a [3]int
+
+Slices:
+Backed by array (in a way)
+Creation styles
+    Slice existing array or slice
+    Literal style
+    Using make function
+len ftn applies
+cap ftn returns the length of the underlying array
+append adds elements to the end of the slice (expensive operation)
+Copies refer to the same underlying data/array
+
+*************************************
+1. Multiple constants, iota data type
+*************************************
+
+package main
+
+import "fmt"
+
+const (
+	_ = iota //constant with iota starts at zero, the rest runs in sequence, underscore == unused
+	KB
+	MB
+	GB
+	TB
+	PB
+	EB
+	ZB
+	YB
+)
+
+func main() {
+	fileSize := 4000000000.
+	fmt.Printf("%0.2f GB", fileSize/GB)
+}
+
+*************************************
+2. Arrays [3]int, or variadic [...]int
+*************************************
+
+//Array declared with a fixed length of [x] length
+//Arrays are passed by value
+//Arrays are immutable
+
+package main
+
+import "fmt"
+
+func main() {
+	a := [3]int{1, 2, 3} //default of array, by val
+	b := a               
+	b[1] = 5             
+	fmt.Println(a)       
+	fmt.Println(b)
+}
+
+//Alternatively, a VARIADIC array can be declared as follows:
+
+package main
+
+import "fmt"
+
+func main() {
+	a := [...]int{1, 2, 3} //variadic array [...] 
+	b := a         
+	b[1] = 5      
+	fmt.Println(a)
+	fmt.Println(b)
+}
+
+
+*************************************
+3. Passing a array by reference, using & (address)
+*************************************
+
+package main
+
+import "fmt"
+
+func main() {
+	a := [...]int{1, 2, 3} //a is a variadic array
+	b := &a                //since a is passed as an add.
+	b[1] = 5               //when b is changed
+	fmt.Println(a)         //a is also affected
+	fmt.Println(b)         //b values == a values
+}
+
+*************************************
+4. Slices
+*************************************
+
+package main
+
+import "fmt"
+
+func main() {
+	a := make([]int, 0, 10) // slice of 0 length, size of 10
+	for i := 1; i < 22; i++ {
+		a = append(a, i)
+	}
+	b := a
+	b[1] = 5
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Printf("Length: %v\n", len(a))
+	fmt.Printf("Capacity: %v\n", cap(a)) //cap is auto expanded by factors of 2 - if required
+}
+
+//Alternatively, declaring a slice with values initialized
+
+package main
+
+import "fmt"
+
+func main() {
+	a := []int{1, 2, 3} //declaring a slice, with literal values initialized
+	b := a
+	b[1] = 5
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Printf("Length: %v\n", len(a))
+	fmt.Printf("Length: %v\n", cap(a))
+}
+
+
+*************************************
+5. Accessing slice positions
+*************************************
+
+package main
+
+import "fmt"
+
+func main() {
+    //if the length is not initialized, append applies
+	a := make([]int, 0, 10) // slice of 0 length, size of 10
+	for i := 1; i < 11; i++ {
+		a = append(a, i)
+	}
+	b := a[:]   //slice of all the elements
+	c := a[3:]  //slice from the 4th element to the end
+	d := a[:6]  //slice of the 1st 6 elements
+	e := a[3:6] //slice of the 4th, 5h and 6th element
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Println(c)
+	fmt.Println(d)
+	fmt.Println(e)
+}
+
+//Alternative way of the above example
+
+func main() {
+    //if the length is initialized, access the element directly
+	a := make([]int, 10, 10) // slice of 0 length, size of 10
+	for i := 0; i < 10; i++ {
+		a[i] = i
+	}
+	b := a[:]   //slice of all the elements
+	c := a[3:]  //slice from the 4th element to the end
+	d := a[:6]  //slice of the 1st 6 elements
+	e := a[3:6] //slice of the 4th, 5h and 6th element
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Println(c)
+	fmt.Println(d)
+	fmt.Println(e)
+}
+
+//Passing a slice by reference
+
+func main() {
+	a := []int{1, 2, 3}
+	b := a[1:]           //everything, inclusive of index 1
+	c := a[:int(len(a))] //[inclusive: exclusive]
+	a[2] = 99            //slices passed by ref, b and c affected
+	fmt.Println("a, b and c - pass by reference")
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Println(c)
+}
+
+//Passing a slice by value
+func main() {
+	a1 := []int{1, 2, 3}
+	b1 := []int{}                         //create a new slice b1
+	b1 = append(b1, a1[1:]...)            //store a1[1:] by value to b
+	c1 := []int{}                         //create a new slice c1
+	c1 = append(c1, a1[:int(len(a1))]...) //store a1 by val to c1
+	a1[2] = 99
+	fmt.Println("a1, b1 and c1 - pass by value")
+	fmt.Println(a1)
+	fmt.Println(b1)
+	fmt.Println(c1)
+}
+
+
+*************************************
+6. Declaring slices and the initial value
+A good example here: https://egghead.io/lessons/go-declare-arrays-and-slices-in-go
+*************************************
+
+func main() {
+	a := []int{}                     //empty slice, need append() to add literal vals
+	a = append(a, []int{1, 2, 3}...) //can only append
+	fmt.Println(a)
+	fmt.Printf("Type: %T\n", a)
+	fmt.Printf("Length: %v\n", len(a))
+	fmt.Printf("Capacity: %v\n", cap(a))
+	fmt.Printf("Values in a: %v\n", a) //nil value initiated
+
+	b := make([]int, 5)              //empty slice, elements populated with 0s, accessed via [x]
+	b = append(b, []int{1, 2, 3}...) //appends at end of slice
+	b[2] = 4                         //and can use element index <= len of slice
+	fmt.Println(b)
+	fmt.Printf("Type: %T\n", b)
+	fmt.Printf("Length: %v\n", len(b))
+	fmt.Printf("Capacity: %v\n", cap(b))
+	fmt.Printf("Values in b: %v\n", b) //five zeros
+
+	c := new([]int)                    //pointer to a new empty slice
+	*c = append(*c, []int{4, 5, 6}...) //appends at end of slice, must deref
+	fmt.Printf("Type: %T\n", c)
+	fmt.Printf("Length: %v\n", len(*c))   //require derefer (*)
+	fmt.Printf("Capacity: %v\n", cap(*c)) //require deref (*)
+	fmt.Printf("Values in c: %v\n", c)    //len of 5 zero values initiate
+}

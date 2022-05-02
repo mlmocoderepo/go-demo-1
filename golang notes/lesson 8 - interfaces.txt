@@ -1,0 +1,471 @@
+Interfaces
+    Basics
+    Composing Interfaces
+    Type Conversion
+        The empty Interfaces
+        Type Switches
+    Implementing with values vs pointers
+    Best Practices
+
+Forward:
+    1. Basic
+        type Writer interface{
+            Write([]byte) (int, error)
+        }
+
+        type ConsoleWriter struct
+        func (cw ConsoleWriter) Write(data []byte) (int, error){
+            n, err := fmt.Println(data)
+            return n, err
+        }
+
+    2. Composing/embedding Interfaces
+        type Writer interface{
+            Write([]byte) (int, error)
+        }
+
+        type Closer interface{
+            Close()
+        }
+
+        type WriterCloser inteface{
+            Writer
+            Closer
+        }
+    
+    3. Type Conversion
+        var wc WriterCloser = NewBufferedWriterCloser() //while WriterCloser my be 
+        bwc := wc.(*BufferedWriterCloser)
+    or
+        var wc WriteCloser = &myWriterCloser{} //3. Therefore, WriteCloser can only accept a pointer to the the myWriterCloser object
+        fmt.Println(wc)
+
+        wc2, ok := wc.(*myWriterCloser)
+        if ok {
+            fmt.Printf("\n%T\n", wc2)
+        } else {
+            fmt.Println("Conversion not successful")
+        }
+
+
+    4. Empty interfaces and type Switches
+        type customnum int
+
+        var i inteface = customnum(1)
+        switch i.(type){
+            case int:
+                fmt.Println("Value is of type integer")
+            case customnum:
+                ftm.Println("Value is of type customnum")
+            default:
+                fmt.Println("I do not know what it is")
+        }
+
+    5. Implementing with values and pointers
+        Methods set to value is all methods with value receivers
+        Methods set to pointer is all methods, regardless of receiver type
+
+    6. Best Practices
+        Use many small interfaces
+        Single method interfaces are some of the most powerful and flexible
+            io.Writer(), io.Reader(), interface
+        Do not export interfaces for types that will be consumed (let method interfaces do the implementation to consume the types)
+        Do export interfaces for types that will be used by packages - usually exposed only the methods
+        Design functions and methods to receive interfaces whenever possible
+
+    //*************************************
+    //1. Basics
+    //*************************************
+
+    //Step 1. Create the interface Writer with the method signature
+    type Writer interface {
+        Write([]byte) (int, error)
+    }
+
+    //Step 2. Create the object ConsoleWriter
+    type ConsoleWriter struct{}
+
+    //Step 3. Create the method for the object ConsoleWriter that implements the Writer interface
+    //This is because ConsoleWriter's Write() method has same method signature as Writer interface's Write function
+    func (cw ConsoleWriter) Write(data []byte) (int, error) {
+        n, err := fmt.Println(string(data))
+        return n, err
+    }
+
+    func main() {
+
+        //4. Instantiate and use the ConsoleWriter
+        //Observe that although w is type Writer, it is able to accept the user-defined stuct object ConsoleWriter
+        // What is important to note is:
+        // a. Writer has a polymorphic behaviour that accepts any object that has similar intrinsic implelemntation
+        // b. Writer can call ConsoleWriter's Write without knowing the actual implementation
+        var w Writer = ConsoleWriter{}
+        w.Write([]byte("Hello Go!!"))
+    }
+
+    //*************************************
+    //2. Composing Interfaces
+    //*************************************
+
+    package main
+
+    import "fmt"
+
+    // 1. Create Incrementor, an interface that has a function signatures Increment and Initialize
+    type Incrementor interface {
+        Increment() int
+    }
+
+    // 2. Create IntCounter, a user-defined object of type int
+    type IntCounter int //Any data type can be used to create a user-defined data type
+
+    // 3. Increment is a method for IntCounter
+    // Initalizer is also a method for IntCounter
+    // The value is passed by pointer (ic *IntCounter)
+    func (ic *IntCounter) Increment() int {
+        *ic++
+        return int(*ic)
+    }
+
+    func main() {
+        myInt := IntCounter(0)       //Instantiate and initialize variable myInt of type IntCounter with a value of zero
+        var inc Incrementor = &myInt //Instantiate a variable inc of type Incrementor and initialze with a pointer to myInt (&myInt)
+        // Now, inc has access to the underlying data of myInt and uses its methods to increment the value to the pointer in myInt
+        // yet inc (the interface) does not have to know the underlying implementation of myInt's implementation (IntCounter)
+        for i := 0; i < 10; i++ {
+            fmt.Println(inc.Increment()) //inc will also update the underlying data of myInt (type:IntCounter)
+        }
+    }
+
+
+
+    //*************************************
+	//3. Type Conversion
+	//*************************************
+
+    package main
+
+    import (
+        "bytes"
+        "fmt"
+    )
+
+    //Step 1. Create the interface Writer with the method signature
+    type Writer interface {
+        Write([]byte) (int, error)
+    }
+
+    //Step 1.1. Create the interface Writer with the method signature
+    type Closer interface {
+        Close() error
+    }
+
+    //Step 2. Create the inteface that embed the two pre-written interfaces 'Writer' and 'Closer'
+    type WriterCloser interface {
+        Writer
+        Closer
+    }
+
+    //3. Create the struct BufferedWriterCloser for 'Writer' and 'Closer
+    type BufferedWriterCloser struct {
+        buffer *bytes.Buffer
+    }
+
+    //4. Create the Write method for BufferedWriteCloser
+    func (bwc *BufferedWriterCloser) Write(data []byte) (int, error) {
+        n, err := bwc.buffer.Write(data)
+        if err != nil {
+            return 0, nil
+        }
+
+        v := make([]byte, 8)
+        for bwc.buffer.Len() > 8 {
+            _, err := bwc.buffer.Read(v)
+            if err != nil {
+                return 0, nil
+            }
+            _, err = fmt.Println(string(v))
+        }
+
+        return n, nil
+    }
+
+    //5. Create the Close method for BufferedWriteCloser
+    func (bwc *BufferedWriterCloser) Close() error {
+        for bwc.buffer.Len() > 0 {
+            data := bwc.buffer.Next(8)
+            _, err := fmt.Println(string(data))
+            if err != nil {
+                return err
+            }
+        }
+        return nil
+    }
+
+    //6. Create a NewBufferWriterCloser to create a new BufferedWriterCloser
+    func NewBufferedWriterCloser() *BufferedWriterCloser {
+        return &BufferedWriterCloser{
+            buffer: bytes.NewBuffer([]byte{}),
+        }
+    }
+
+    func main() {
+        var wc WriterCloser = NewBufferedWriterCloser()
+        wc.Write([]byte("Hello Youtube Listeners, this is a test"))
+        wc.Close()
+
+        bwc, ok := wc.(*BufferedWriterCloser) //type conversion, use ok as the additional returned value to check for success or failure of conversion
+        if ok {
+            fmt.Println(bwc)
+        } else {
+            fmt.Println("Conversion failed")
+        }
+    }
+
+
+
+    //*************************************
+    //3.1. Type Conversion - Practice
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "time"
+    )
+
+    // 1. Create an interface called Order
+    type Orderer interface {
+        Order(int)
+    }
+
+    // 2. Create an interface called Invoice
+    type Invoicer interface {
+        Invoice(int)
+    }
+
+    // 2. Create an interface called Invoice
+    type Completer interface {
+        Complete()
+    }
+
+    // 3. Create an interface that embeds Orderer and Invoicer
+    type OrderInvoicer interface {
+        Orderer
+        Invoicer
+        Completer
+    }
+
+    // 4. Create an object that takes an order and processes the invoice
+    type PurchaseOrdererInvoicer struct {
+        Timestamp     time.Time
+        OrderNumber   int
+        InvoiceNumber int
+    }
+
+    // 4.1: Create the method Order for PurchaseOrdererInvoicer that has the same method signature as OrderInovicer's Orderer's Order
+    func (oi *PurchaseOrdererInvoicer) Order(orderNum int) {
+        oi.OrderNumber = orderNum
+    }
+
+    // 4.2: Create the method Invoice for PurchaseOrdererInvoicer that has the same method signature as OrderInovicer's Invoicer's Invoice
+    func (oi *PurchaseOrdererInvoicer) Invoice(invoiceNum int) {
+        oi.InvoiceNumber = invoiceNum
+    }
+
+    // 4.3: Create the method Complete for PurchaseOrdererInvoicer that has the same method signature as OrderInovicer's Completer's Complete
+    func (oi *PurchaseOrdererInvoicer) Complete() {
+        fmt.Println("Order Number:", oi.OrderNumber)
+        fmt.Println("Invoice Number:", oi.InvoiceNumber)
+        fmt.Println("Billed on:", oi.Timestamp)
+    }
+
+    // 5. Create a method that returns an instance of PurchaseOrdererInvoicer
+    func NewPurchaseOrdererInvoicer() *PurchaseOrdererInvoicer {
+        return &PurchaseOrdererInvoicer{
+            Timestamp: time.Now(),
+        }
+    }
+
+    func main() {
+        // 6. By instantiating oi of type OrderInvoicer() with NewPurchaseOrdererInvoicer()
+        // oi can only expose the methods from NuewPurchaseOrderInovoicer()
+        var oi OrderInvoicer = NewPurchaseOrdererInvoicer()
+        oi.Order(1)
+        oi.Invoice(1)
+        oi.Complete()
+
+        // 7. A type conversion can be carried out to directly access the values that were previously
+        // not accessible at point no. 6
+        poi := oi.(*PurchaseOrdererInvoicer)
+        fmt.Println(poi)
+    }
+
+    //*************************************
+	//3.2 Type conversion - using an empty interface, see main function
+	//*************************************
+
+    package main
+
+    import (
+        "bytes"
+        "fmt"
+    )
+
+    //Step 1. Create the interface Writer with the method signature
+    type Writer interface {
+        Write([]byte) (int, error)
+    }
+
+    //Step 1.1. Create the interface Writer with the method signature
+    type Closer interface {
+        Close() error
+    }
+
+    //Step 2. Create the inteface that embed the two pre-written interfaces 'Writer' and 'Closer'
+    type WriterCloser interface {
+        Writer
+        Closer
+    }
+
+    //3. Create the struct BufferedWriterCloser for 'Writer' and 'Closer
+    type BufferedWriterCloser struct {
+        buffer *bytes.Buffer
+    }
+
+    //4. Create the Write method for BufferedWriteCloser
+    func (bwc *BufferedWriterCloser) Write(data []byte) (int, error) {
+        n, err := bwc.buffer.Write(data)
+        if err != nil {
+            return 0, nil
+        }
+
+        v := make([]byte, 8)
+        for bwc.buffer.Len() > 8 {
+            _, err := bwc.buffer.Read(v)
+            if err != nil {
+                return 0, nil
+            }
+            _, err = fmt.Println(string(v))
+        }
+
+        return n, nil
+    }
+
+    //5. Create the Close method for BufferedWriteCloser
+    func (bwc *BufferedWriterCloser) Close() error {
+        for bwc.buffer.Len() > 0 {
+            data := bwc.buffer.Next(8)
+            _, err := fmt.Println(string(data))
+            if err != nil {
+                return err
+            }
+        }
+        return nil
+    }
+
+    //6. Create a NewBufferWriterCloser to create a new BufferedWriterCloser
+    func NewBufferedWriterCloser() *BufferedWriterCloser {
+        return &BufferedWriterCloser{
+            buffer: bytes.NewBuffer([]byte{}),
+        }
+    }
+
+    func main() {
+        var wc2 interface{} = NewBufferedWriterCloser() //adopting an empty interface instead
+        //Use the if x, ok condition to check if the type conversion is successful (from empty interface to BufferedWriteCloser)
+        if wc2, ok := wc2.(WriterCloser); ok {
+            wc2.Write([]byte("Hello Youtube Listeners, this is a test2"))
+            wc2.Close()
+        }
+
+    }
+
+    //*************************************
+	//5. 3.3 Type Switches
+	//*************************************
+
+    package main
+
+    import "fmt"
+
+    type usernumber int
+
+    func main() {
+        var i interface{} = usernumber(0) //declaring a custom type can also be initialzed with a parenthesis: var un usernumber = 0
+        switch i.(type) {
+        case int:
+            fmt.Println("Value of type integer")
+        case float64:
+            fmt.Println("Value of type float")
+        case string:
+            fmt.Println("Value of type string")
+        case bool:
+            fmt.Println("Value is a boolean")
+        case usernumber:
+            fmt.Println("Value of type usernumber")
+        default:
+            fmt.Println("I don't know what it is")
+        }
+
+    }
+
+    //*************************************
+	//4. Values vs Pointers - note how interfaces are used to keep implementations local - yet assessible via an interface
+    // When an object is passed as a pointer, NONE, SOME or ALL methods belong to the object can be POINTERS
+	//*************************************
+
+    
+    package main
+
+    import "fmt"
+
+    type Closer interface {
+        Close() error
+    }
+
+    type Writer interface {
+        Write([]byte) (int, error)
+    }
+
+    type WriteCloser interface {
+        Writer
+        Closer
+    }
+
+    type myWriterCloser struct{}
+
+    //1.take note that Write is a receiver of a pointer to a myWriterCoser
+    func (mwc *myWriterCloser) Write(byte []byte) (int, error) {
+        return 0, nil
+    }
+
+    //2.take note that Close is a receiver of a pointer to a myWriterCoser
+    func (mwc myWriterCloser) Close() error {
+        return nil
+    }
+
+    // IMPORTANT: It is important to note that the type myWriterCloser is a lower case - thus is only scoped locally to this page.
+    // By assigning myWriterCloser to WriterCloser, now WriteCloser exposes the functions of myWriterCloser - without requiring to know the implementations
+
+    // IMPORTANT 2: When an object is passed as a pointer, NONE, SOME or ALL methods belong to the object can be POINTERS
+
+    func main() {
+
+        var wc WriteCloser = &myWriterCloser{} //3. Therefore, WriteCloser can only accept a pointer to the the myWriterCloser object
+        fmt.Println(wc)
+
+    }
+
+    //*************************************
+	//5. Best Practices
+	//*************************************
+
+    Use many, small interfaces
+        Single method interfaces are some of the most powerful and flexible
+        io.Writer, io.Reader, interface{}
+
+    Do NOT export interfaces for types that will be consumed
+    DO export interfaces for types tht will be used by the package
+    Design functions and methods to receive interfaces whenever possible

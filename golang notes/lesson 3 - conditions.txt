@@ -1,0 +1,193 @@
+Foreword: 
+Switch statements
+	Switching on a tag
+	Cases with multiple tests, using:
+		- initializers (e.g. the switch i := 2 + 3; i{case...} )
+		- Switch with no tags (eg. the logical operations, case x > 5:)
+		- Fallthrough
+		- Type switches (e.g. switch val.(type){case...})
+		- Breaking out early using the break tag
+
+
+package main
+
+import (
+	"fmt"
+	"math"
+	"strings"
+)
+
+func main() {
+
+	//*************************************
+	//1. if, else if, else Conditions
+	//*************************************
+
+	cityPopulation := map[string]int{
+		"cityA": 1000,
+		"cityB": 2000,
+		"cityC": 3000,
+	}
+
+	//1. Maps will revert a status on whether a member or element exists (true) or not
+	if pop, ok := cityPopulation["cityA"]; ok {
+		fmt.Println(pop)
+	}
+
+	//2. basic if condition
+	number := 50
+	guess := 50
+	if guess < number {
+		fmt.Println("Too low")
+	}
+	if guess > number {
+		fmt.Println("Too high")
+	}
+
+	if guess == number {
+		fmt.Println("You got it")
+	}
+
+	//3. short form of writing the above bool conditions
+	fmt.Println(guess < number, guess > number, guess == number)
+
+	//4. if conditions with logical operators
+	number2 := 50
+	guess2 := 30
+
+	//return true is a short circuit function - used when needed
+	// Logical Short-Circuiting
+	// The logical or operator returns logical 1 ( true ) if even a single condition in the expression is true. When the evaluation of a logical expression terminates early by encountering one of these values, the expression is said to have short-circuited.
+	returnTrue := func() bool {
+		fmt.Println("RETURNING TRUE TO SHORT CURCUIT THE LOGICAL OPERATION")
+		return true
+	}
+
+	//5. adding a short circuit function mulit-condition
+	//the logical short circuit will ensure that this condition is run to display the msg
+	if guess2 < 1 || returnTrue() || guess2 > 100 {
+		fmt.Println("The number must be between 1 to 100")
+	}
+
+	if guess2 >= 1 && guess2 <= 100 {
+		if guess2 < number2 {
+			fmt.Println("Too low")
+		}
+		if guess2 > number2 {
+			fmt.Println("Too high")
+		}
+
+		if guess2 == number2 {
+			fmt.Println("You got it")
+		}
+
+		fmt.Println(guess2 <= number2, guess2 >= number2, guess2 != number2)
+
+	}
+
+	//6. if else-if conditions
+	number3 := 50
+	guess3 := 30
+
+	if guess3 < 1 {
+		fmt.Println("The number must greater than 0")
+	} else if guess3 > 100 {
+		fmt.Println("The number must be less than 100")
+	} else {
+
+		if guess2 >= 1 && guess2 <= 100 {
+			if guess3 < number3 {
+				fmt.Println("Too low")
+			}
+			if guess3 > number3 {
+				fmt.Println("Too high")
+			}
+			if guess3 == number3 {
+				fmt.Println("You got it")
+			}
+
+			fmt.Println(guess3 <= number3, guess3 >= number3, guess3 != number3)
+		}
+	}
+
+	//7. If else condition
+	myNum := 0.123456789
+	eval := math.Abs(myNum/math.Pow(math.Sqrt(myNum), 2) - 1)
+	if eval < 0.001 {
+		fmt.Println("These are the same")
+	} else {
+		fmt.Println("They are different")
+	}
+	fmt.Printf("eval is: %.2f\n", eval)
+
+	//*************************************
+	//2. switch statements
+	//*************************************
+
+	//1. Basic switch statements with logical OR conditions in it
+	switch 5 {
+	case 1, 5, 10:
+		fmt.Println("One, Five, Ten")
+	case 2, 4, 6:
+		fmt.Println("Two, Four, Six")
+	default:
+		fmt.Println("None of the above")
+	}
+
+	//2. NEW AND IMPORTANT: Adding an initializer arithmetic op to the switch statement
+	switch i := 2 + 3; i {
+	case 5:
+		fmt.Println("Sum is equal to 5")
+	default:
+		fmt.Println("Not equal to 5")
+	}
+
+	//3. NEW AND IMPORTANT: Adding an logical conditions in each case
+	var val int = 0
+	switch { // NOTE: no value is passed to switch
+	case val < 5:
+		fmt.Println("Value is less than 5")
+	case val == 5:
+		fmt.Println("Value is equal 5")
+	case val > 5:
+		fmt.Println("Value is greater 5")
+	default:
+		fmt.Println("Invalid")
+	}
+
+	//4. NEW AND IMPORTANT: Using fall throughs to force cases in a switch run sequentially
+	var Toppings string
+	fmt.Println("Please select your topping.")
+	fmt.Scanf("%s", &Toppings)
+
+	switch strings.ToLower(Toppings) {
+	case "twinkies":
+		fmt.Println("Twinkies shall be added.")
+	case "fudge":
+		fmt.Println("Fudge shall be added.")
+		fallthrough //fallthrough is added here
+	case "marshmallow":
+		fmt.Println("Mashmallow shall be added.")
+	default:
+		fmt.Println("I'm unable to read the request.")
+	}
+	fmt.Println("Thank you.")
+
+	//5. NEW AND IMPORTANT: Using switch statements to determine the information data type
+	//Create an example interface variable that accepts any value
+	var typeValue interface{} = [2]int{}
+
+	switch typeValue.(type) {
+	case int:
+		fmt.Println("Value is of integer type")
+	case float64:
+		fmt.Println("Value is of float type")
+	case string:
+		fmt.Println("Value is of string type")
+	case [3]int: //note the difference of array length
+		fmt.Println("Value is of [3]int type")
+	default:
+		fmt.Println("Value type not found")
+	}
+
+}

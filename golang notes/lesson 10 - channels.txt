@@ -1,0 +1,343 @@
+Channels
+
+Forward:
+    Create a channel using the make command
+        make(chan int)
+    Sending data into a channel
+        chan<- value
+    Receiving data from a channel
+        value := <-chan
+    Can have multiple channels
+
+    Restricting data flow
+        Channels can be cast into send only or receive only channels
+            send only: chan <-int
+            receive only: <-chan int
+
+    Buffered Channels
+        Channels block sender side until receiver is available
+        Block receiver side till message is available
+        Can decouple sender and receiver with buffed channels
+            make(chan int, 50) //refer to the buffer size indicated
+        Use buffered channels when send and receiver have assymmetric loading
+        For... range loops with channels    use to monitor channel and process messages as they arrive
+        Select statements
+            Allows go routines to monitor several channels at once 
+                Blocks if all channels block
+            If mulitple channels receive value simultaneously, behaviour is underfined
+
+
+	//*************************************
+	//1.  Basics
+	// The example below demonstrates that go routines runs on a FILO pattern
+	//*************************************
+    
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        //1. declare a channel that allows a type of integer
+        ch := make(chan int)
+
+        //2. Invoke the function that there'll be 2 go routines to wait upon
+        wg.Add(2)
+
+        // 3. Create a RECEIVER channel
+        go func() {
+            i := <-ch // i receives a value sent from the channel 'ch'
+            fmt.Println(i)
+            wg.Done() // inform wg that the thread process is released
+        }()
+
+        // 2. Create a SENDER channel
+        go func() {
+            ch <- 42  // sends a value of 42 into the channel
+            wg.Done() // inform wg that the thread process is released
+        }()
+
+        wg.Wait() //waits for the above go routines to end before exiting the main function
+    }
+
+
+    //*************************************
+    //2.  When are channel data ignored
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        ch := make(chan int)
+
+        wg.Add(2)
+
+        go func() {
+            i := <-ch
+            fmt.Println(i)
+            wg.Done()
+        }()
+
+        go func() {
+            i := 400
+            ch <- i
+            i = 27 //this input is ignored as the above data where i := 42 is already passed to the channel
+            wg.Done()
+        }()
+
+        wg.Wait()
+    }
+
+
+    //*************************************
+    //3.  Where deadlocks occur
+    // When th number of senders and receivers do not add up, a deadlock ensues - as seen below
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        ch := make(chan int)
+
+        wg.Add(6)
+
+        // Receiver - there is only one receiver
+        go func() {
+            i := <-ch
+            fmt.Println(i)
+            wg.Done()
+        }()
+
+        // Sender - there are, however, 5 senders
+        for y := 0; y < 5; y++ {
+            go func(num int) {
+                i := 1 * num
+                ch <- i
+                wg.Done()
+            }(y)
+        }
+
+        wg.Wait()
+    }
+
+
+    //*************************************
+    //4.  Playing with the order of sending and receiving
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        ch := make(chan int)
+
+        wg.Add(2)
+
+        // Receiver
+        go func() {
+            i := <-ch
+            fmt.Println(i)
+            ch <- 100 //after 'ch' receives its data via i := <-ch, a value of 100 is passed is sent to 'ch' again
+            wg.Done()
+        }()
+
+        // Sender
+
+        go func() {
+            i := 10
+            ch <- i
+            fmt.Println(<-ch) //IMPORTANT TO NOTE ON HOW TO CALL OUT THE DATA IN A CHANNEL, print out val in 'ch' again
+            wg.Done()
+        }()
+
+        wg.Wait()
+    }
+
+        
+    //*************************************
+    //5. Using go routines to be dedicated as send / receive Channels
+    //a. Observe the directions of the channel variable instantiated within each go routine's parameters
+    //b. adding a size buffer for the channel to receive up to 50 integer values
+    //c. close a channel if it is no longer used; as it does not know when to exit
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        channel := make(chan int, 50) //b. adding a size buffer for the channel to receive up to 50 integer values
+
+        wg.Add(2)
+
+        // Dedicated Go routine Receiver
+        go func(c <-chan int) { //a. param 'c' is receivng int data from a channel
+            for i := range c {
+                fmt.Println(i)
+            }
+            wg.Done()
+        }(channel)
+
+        // Dedicated Go routine Sender
+        go func(c chan<- int) { //a. param 'c' is a channel that is acceptng int data
+            for i := 0; i < 5; i++ {
+                c <- i
+            }
+            close(c) //c. need to close the channel preliminarily as the channel doesn't know how to exit
+            wg.Done()
+        }(channel)
+
+        wg.Wait()
+    }
+
+    //*************************************
+    //5.1. Using an infinte for loop plus a close function to manage go routines channels
+    // Note that in point b. and c., the channel <-c returns a value and boolean
+    // the boolean indicates if a close msg is sent to the channel is received
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        channel := make(chan int, 50) //have the buffer when instantiating the channel
+        wg.Add(2)
+
+        // Dedicated Go routine Receiver
+        go func(c <-chan int) {
+            for { //a. Implement a infinite for loop
+                if i, ok := <-c; ok { //b. if condition check if the channel is receiving values and not closed, ie. ok = true
+                    fmt.Println(i)
+                } else {
+                    break //c. otherwise, break from the for loop
+                }
+            }
+            wg.Done()
+        }(channel)
+
+        // Dedicated Go routine Sender
+        go func(c chan<- int) {
+            for i := 0; i < 5; i++ {
+                c <- i
+            }
+            close(c) //c. the close function sent to close the channel
+            wg.Done()
+        }(channel)
+
+        wg.Wait()
+    }
+
+    //*************************************
+    //6. Gracefully handling channels using defer, an infinite loop, switch statement and an empty struct to close a channel
+    //Pt 1. Sending a struct to a channel
+    //Pt. 2 and pt. 4 uses an empty struct to send a signal to close the the channel
+    //Pt. 3 gracefully closes the channel once the main function exits
+    //Pt. 5 uses an infinite loop with a select statement to determine whether the loop
+    //Pt. 6 uses default in the switch statement to establish a non-blocking switch statement
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "time"
+    )
+
+    const (
+        logInfo    = "INFO"
+        logWarning = "WARNING"
+        logError   = "ERROR"
+    )
+
+    type logEntry struct {
+        time     time.Time
+        severity string
+        message  string
+    }
+
+    // 1. Create a channel that sends and receives struct type logEntry
+    var logCh = make(chan logEntry, 50)
+
+    // 2. Create a channel that is strongly typed with no field (a sginal only channel)
+    var doneCh = make(chan struct{})
+
+    func main() {
+
+        go logger()
+
+        defer func() { //3. the defer anonymous func gracefully closes the channel after main ends
+            close(logCh)
+        }()
+
+        logCh <- logEntry{time.Now(), logInfo, "App is starting"}
+        logCh <- logEntry{time.Now(), logInfo, "App is shutting down"}
+        time.Sleep(100 * time.Millisecond)
+        doneCh <- struct{}{} //4. pass in the empty struct as a signal for the channel to close
+
+    }
+
+    func logger() {
+        //5. Using an infinte for loop
+        for {
+            // using a select - case statement
+            // if the channel is passed in a logCh, print it out
+            // otherwise, if the channel receives a doneCh, end the loop
+            // the default statement is added as a non-blocking select statement
+            select {
+            case entry := <-logCh:
+                fmt.Printf("%v - [%v]%v\n", entry.time.Format("2006-01-02T15:04:05"), entry.severity, entry.message)
+            case <-doneCh:
+                break
+            default: //6. the default statement here establishes a non-blocking switch statement
+            }
+        }
+    }
+
+    // func logger() {
+    // 	for entry := range logCh {
+    // 		fmt.Printf("%v - [%v]%v\n", entry.time.Format("2006-01-02T15:04:05"), entry.severity, entry.message)
+    // 	}
+    // }
+
+

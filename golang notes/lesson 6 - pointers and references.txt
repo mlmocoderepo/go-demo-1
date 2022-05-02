@@ -1,0 +1,130 @@
+Foreword:
+	Creating pointers
+		Pointer types use an asterisk(*) as a prefix to type pointed to
+			*int - a pointer to an integer
+		Use the addressof operator (&) to get the address of a variable
+	Dereferencing
+		Dereferences a pointer by preceding with an asterisk (*)
+		Complex types (e.g. structs) are automatically dereferenced
+	Create pointers to objects
+		Can use the addressof operator (&) if the value type already exists
+			ms := myStruct{foo:42}
+			p := &ms
+		Use addressof operator before initializer
+			&myStruct{foo:42}
+		Use the 'new' keyword
+			Can't initialize at the same time
+	Types of internal pointers
+		All assignment operators in Go are copy operations
+		Slices and Maps USE INTERNAL POINTERS, so copies points to the same underlying data
+
+package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func main() {
+
+	//*************************************
+	//1. Working with pointers: primitive, basic data types
+	//*************************************
+
+	var a int = 42
+	var b *int = &a         //var 'b' stores a pointer to an int and 'a' is passed as an address to 'b'
+	fmt.Println("1.", a, b) //output of the print statement: 'a':42 'b':0x14000122008%
+
+	// To print out the address of b, use the dereferencing symbol '*'
+	fmt.Println(&a, b) //both output registers the same address
+
+	fmt.Println("2.", a, *b) //output is 'a':42, 'b':42
+
+	//'a' and 'b' points to the same address, changes to 'a' will be updated to 'b' too
+	a = 88
+	fmt.Println(a, *b) //output is 'a':88, 'b':88
+
+	// To store a literal inside b, the dereference symbol must be used
+	*b = 99            // As var 'b' stores a pointer to 'a', 'b' needs to be dereferenced
+	fmt.Println(a, *b) //output is 'a':99, 'b':99
+
+	//*************************************
+	//2. Working with pointers: collection data types
+	//*************************************
+
+	// Arrays
+	// Default pass-by-value, REQUIRES ADDRESS symbol
+	i := [3]int{1, 2, 3}
+	fmt.Println(&i[0])
+	fmt.Println(&i[1])
+	fmt.Println(&i[2]) //each address is 4 byte apart
+	fmt.Printf("%v, %p, %p, %p\n", i, &i[0], &i[1], &i[2])
+
+	//*************************************
+	//3. Working with pointers: complex types / user-define data types
+	//*************************************
+
+	//Structs: user-defined data type
+	// Default pass-by-value, but REQUIRES ADDRESS symbol (&)
+	// Requires dereferencing to obtain its values (*)
+
+	// Ad-hoc Structs
+	basicStruct := &struct {
+		foo int
+	}{foo: 42}
+	fmt.Println("Basic Struct:", basicStruct)
+
+	anotherbasicStruct := basicStruct
+	fmt.Println("Another Basic Struct:", *anotherbasicStruct)
+
+	t := reflect.TypeOf(*basicStruct)
+	fields, ok := t.FieldByName("do")
+	fmt.Printf("%v, %t\n", fields, ok)
+
+	// Basic Structs
+	type PointerStruct struct {
+		foo int
+	}
+
+	pointerStruct := &PointerStruct{
+		foo: 42,
+	}
+
+	fmt.Println("Pointer Struct:", *pointerStruct)
+
+	// Using new keyword to create a new empty struct
+	type NewStruct struct {
+		foo int
+		boo float64
+		bar string
+	}
+
+	var newStruct *NewStruct             //create a pointer to a new struct of type NewStruct
+	fmt.Println("newStruct:", newStruct) //of nil values
+	newStruct = new(NewStruct)           //initialize with zero values using the 'new' keyword
+	fmt.Println("newStuct:", newStruct)  //of 0 or "" values
+	(*newStruct).foo = 42                //this works
+	newStruct.foo = 42                   //works too (no derferencing - go's synthetic sugar)
+	fmt.Println(newStruct)
+
+	//*************************************
+	//2. Working with pointers: collection data types - part 2
+	//*************************************
+
+	// Slices - passes values by pointers
+	s := []int{1, 2, 3}
+	x := s
+	fmt.Println(s, x)
+	x[1] = 99
+	fmt.Println(s, x)
+
+	// Maps - also passes values by pointers
+	m := map[string]string{"foo": "foo", "bar": "bar"}
+	fmt.Println("Slice 1", m)
+	m2 := m
+	fmt.Println("Slice 2", m2)
+	m2["foo"] = "foo updated"
+	fmt.Println(m)
+	fmt.Println(m2)
+
+}

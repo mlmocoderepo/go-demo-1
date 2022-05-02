@@ -1,0 +1,178 @@
+Go Routines
+    Basics of Go Routine(s)
+    Using Waitgroups to spin threads to run processes
+    Using Mutex to free up race conditions
+
+    Best Practices
+        Do not create goroutines in libraries
+            Let consumer control concurrency
+        When creating a go routine, know how it will end
+            Avoid subtle memory leaks
+        Check for race conditions at compile time, ie when running go run main.go
+
+    Recap:
+        Goroutines use the 'go' keyword in front of function call
+        When using anonymous functions, pass data as local variables
+        Synchornization
+            Use sync.WaitGroup{} to wait for other groups of routine to complete
+            Use sync.Mutex and sync.RWMutex to protect data access (Mutex ensures only 1 goroutine is acessed/changing data only one time)
+        Parallelism
+            By default, Go will run threads equal to the variable call
+            Change it with GOMAXPROCS
+            More threads can increase performance, but too many can slow things down in the application
+
+    Best Practices
+        Do not create goroutines in libraries
+            Let consumer controll concurrency
+        When creating a go routing, know how it will end    
+            This will avoid memory leaks
+        Check for race conditions at compile time
+
+
+Forward:
+
+    //*************************************
+	//1.  Basics
+    //Refer to important section on passing values to anonymous go routines to prevent race conditions 
+	//*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "time"
+    )
+
+    func main() {
+        //1. use the go keyword to tell go runtime to spin a new green thread to run teh function
+        go sayHello()
+
+        //2. creating an anonymous go routine function
+        go func() {
+            fmt.Println("Hello again")
+        }()
+
+        // 3. go runtime understand that it is still working with a variable within the scope of main
+        // thus, msg is not required to be passed into the go routine
+        // IMPORTANT: But there could be implications where race conditions could occur, hence
+        // the best practice is to pass the message to the go routine to process
+        msg := "I have a message for you"
+        go func(str string) {
+            fmt.Println(str)
+        }(msg)
+
+        // 4. Race conditions
+        // The race condition here takes place and the newer string in msg is printed
+        // Uncomment to test it out
+        msg = "I have another message for you"
+
+        //IMPORTANT: go routines are run on separate threads
+        //and as the main function does not wait for the threads to complete,
+        //the timers applied will keep the processes running in the main function to see the routine complete before exiting the main function
+        time.Sleep(1000 * time.Millisecond)
+    }
+
+    func sayHello() {
+        fmt.Println("Hello!")
+    }
+
+    //*************************************
+	//2.  Waitgroup
+	//*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "sync"
+    )
+
+    //*************************************
+    //2.  Waitgroup
+    // Using a waitgroup, the go routine is executed to completion as it is specified within the encompassing main function
+    // Need to specify
+    // 1) the no. of go routines to Add(x),
+    // 2) where the routines is/are complete Done(); and
+    // 3) where to Wait() for the go routines to complete
+    // Go routines run on FILO heap stack
+    //*************************************
+
+    var wg = sync.WaitGroup{}
+
+    func main() {
+
+        var msg = "Hello"
+        var msg2 = "Good Bye"
+
+        wg.Add(2)
+        go func(str string) {
+            fmt.Println(str)
+            wg.Done()
+        }(msg)
+        go Goodbye(msg2)
+        wg.Wait()
+    }
+
+    func Goodbye(str string) {
+        fmt.Println(str)
+        wg.Done()
+    }
+
+    // Goodbye will be printed first, then Hello
+    // Thus this example is a FILO stack
+
+
+    //*************************************
+    //2.  Using Mutexes to eliminate Race Conditions
+    // Use a RWMutex to prevent concurrent reading and writing
+    //*************************************
+
+    package main
+
+    import (
+        "fmt"
+        "runtime"
+        "sync"
+    )
+
+    var wg = sync.WaitGroup{}
+    var counter = 0
+    var m = sync.RWMutex{} //1. Using a RWMutex, MULTIPLE READS can be run, but ONLY ONE WRITE can be run
+
+    func main() {
+
+        //runtime.GOMAXPROCS(-1) tells us the number of threads that the program can work with
+        // A 4-core system = 4 Threads, an eight-core system = 8 threads
+
+        //GOMAXPROCS >1 numbers manageable to improve performance (See below)
+        // more threads means more work to schedule threads, therefore, keep the no. manageable w/o losing performance
+        fmt.Printf("Number of threads: %v\n", runtime.GOMAXPROCS(20))
+        for i := 0; i < 10; i++ {
+
+            wg.Add(2)
+
+            // IMPORTANT: the READ and WRITE LOCKS have to be placed outside the context of the go routine
+            // Otherwise, the the locks will be ignored as their are run outside of the go routine
+            // The only problem with the example is that parallelism and asynchronous execution is gone as mutex is forcing
+            // the go routines to run in a single-threaded way; and the performance could be worse
+
+            m.RLock() //2. Create a READ LOCK to prevent concurrent reading and writing
+            go sayHello()
+            m.Lock() //4. Create a lock (WRITE LOCK) on the mutex
+            go increment()
+        }
+        wg.Wait()
+    }
+
+    func sayHello() {
+
+        fmt.Printf("Hello %v\n", counter)
+        m.RUnlock() //3. UNLOCK the READ LOCK
+        wg.Done()
+    }
+
+    func increment() {
+        counter++
+        m.Unlock() //5. Now call unlock
+        wg.Done()
+    }
